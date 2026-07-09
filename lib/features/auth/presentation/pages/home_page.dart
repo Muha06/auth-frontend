@@ -19,6 +19,9 @@ class HomePage extends ConsumerWidget {
             onPressed: () {
               showModalBottomSheet(
                 context: context,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
                 builder: (context) => const _UserSettingsSheet(),
               );
             },
@@ -41,26 +44,35 @@ class _UserSettingsSheet extends ConsumerWidget {
   Widget build(BuildContext context, ref) {
     return DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.4, // starts at 40%
-      minChildSize: 0.3, // can't go below 30%
-      maxChildSize: 0.9, // up to 90%
+      initialChildSize: 0.4,
+      minChildSize: 0.3,
+      maxChildSize: 0.4,
       builder: (context, controller) {
         return ListView(
+          padding: const EdgeInsets.all(8),
           controller: controller,
           children: [
             ActionTile(
               title: 'Refresh Profile',
-              onTap: () => ref.read(profileProvider.notifier).refreshProfile(),
+              leading: const Icon(Icons.refresh),
+              onTap: () {
+                ref.read(profileProvider.notifier).refreshProfile();
+
+                AppNavigator.pop(context);
+              },
             ),
 
             ActionTile(
               title: 'Logout',
+              leading: const Icon(Icons.logout),
+              destructive: true,
               onTap: () async {
+                // AppNavigator.pop(context);
+
                 try {
                   await ref.read(authProvider.notifier).logout();
+                } finally {
                   AppNavigator.pushReplacement(context, const AuthPage());
-                } catch (e) {
-                  AppSnackBar.error(context, "Failed to logout.");
                 }
               },
             ),
@@ -77,21 +89,26 @@ class ActionTile extends StatelessWidget {
     required this.title,
     required this.onTap,
     this.leading,
-    this.trailing,
+    this.destructive = false,
   });
 
   final String title;
   final VoidCallback onTap;
   final Widget? leading;
-  final Widget? trailing;
+  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
+    final color = destructive ? Colors.red : null;
+
     return ListTile(
-      leading: leading,
-      title: Text(title),
-      trailing:
-          trailing ?? const Icon(Icons.arrow_forward_ios_rounded, size: 18),
+      leading: leading != null
+          ? IconTheme(
+              data: IconThemeData(color: color),
+              child: leading!,
+            )
+          : null,
+      title: Text(title, style: TextStyle(color: color)),
       onTap: onTap,
     );
   }
