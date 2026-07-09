@@ -58,7 +58,7 @@ class AuthRemoteDs {
 
       return SignupResponse.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      debugPrint("Error signing up $e");
+      debugPrint("Error signing up ${e.response}");
       rethrow;
     } catch (e) {
       debugPrint("Unexpected error $e");
@@ -80,7 +80,7 @@ class AuthRemoteDs {
         json: response.data as Map<String, dynamic>,
       );
     } on DioException catch (e) {
-      debugPrint("Error refreshing token ${e.error.toString()}");
+      debugPrint("Error refreshing token ${e.response}");
       switch (e.response?.statusCode) {
         case 401:
           throw const UnauthorizedException(); // Session ended
@@ -108,8 +108,10 @@ class AuthRemoteDs {
         data: {'refreshToken': refreshToken},
         options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
       );
+    } on DioException catch (e) {
+      debugPrint("Error logging out ${e.response}");
     } catch (e) {
-      debugPrint("Error logging out $e");
+      debugPrint("Something went wrong $e");
       rethrow;
     }
   }
@@ -127,9 +129,12 @@ class AuthRemoteDs {
       if (e.response?.statusCode == 401) {
         throw const UnauthorizedException();
       }
+
+      debugPrint("Error getting me ${e.response}");
+
       rethrow;
     } catch (e) {
-      debugPrint("error getting me $e");
+      debugPrint("Something went wrong $e");
       rethrow;
     }
   }

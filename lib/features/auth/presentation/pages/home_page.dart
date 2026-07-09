@@ -1,5 +1,4 @@
 import 'package:auth_frontend/core/helpers/navigation.dart';
-import 'package:auth_frontend/core/helpers/snackbars.dart';
 import 'package:auth_frontend/features/auth/presentation/pages/auth_page.dart';
 import 'package:auth_frontend/features/auth/presentation/providers/auth_notifier.dart';
 import 'package:flutter/material.dart';
@@ -129,8 +128,6 @@ class UserCard extends ConsumerWidget {
         ),
       ),
       data: (user) {
-        debugPrint("ui ${user.username}");
-
         return Card(
           elevation: 2,
           shape: RoundedRectangleBorder(
