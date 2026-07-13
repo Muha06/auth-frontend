@@ -73,13 +73,22 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<void> refresh() async {
-    final tokens = await _repository.refresh();
+    state = const AuthState(isLoading: true);
+    try {
+      final tokens = await _repository.refresh();
 
-    // cache access token
-    ref.read(accessTokenProvider.notifier).setToken(tokens.accessToken);
+      // cache access token
+      ref.read(accessTokenProvider.notifier).setToken(tokens.accessToken);
+      state = const AuthState();
+    } catch (e) {
+      state = AuthState(error: e.toString());
+      rethrow;
+    }
   }
 
   Future<void> logout() async {
+    state = const AuthState(isLoading: true);
+
     final accessToken = ref.read(accessTokenProvider);
 
     try {
@@ -88,6 +97,10 @@ class AuthNotifier extends Notifier<AuthState> {
         onTokenRefreshed: (token) =>
             ref.read(accessTokenProvider.notifier).setToken(token),
       );
+
+      state = const AuthState();
+    } catch (e) {
+      state = AuthState(error: e.toString());
     } finally {
       // Always clear it.
       ref.read(accessTokenProvider.notifier).clear();
@@ -97,11 +110,57 @@ class AuthNotifier extends Notifier<AuthState> {
   Future<UserProfile> getMe() async {
     final accessToken = ref.read(accessTokenProvider); // For authorization
 
-    return await _repository.getMe(
-      accessToken: accessToken,
-      onTokenRefreshed: (token) =>
-          ref.read(accessTokenProvider.notifier).setToken(token),
-    );
+    try {
+      final user = await _repository.getMe(
+        accessToken: accessToken,
+        onTokenRefreshed: (token) =>
+            ref.read(accessTokenProvider.notifier).setToken(token),
+      );
+
+      state = const AuthState();
+      return user;
+    } catch (e) {
+      state = AuthState(error: e.toString());
+      rethrow;
+    }
+  }
+
+  Future<void> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    state = const AuthState(isLoading: true);
+
+    final accessToken = ref.read(accessTokenProvider);
+
+    try {
+      await _repository.changePassword(
+        oldPassword: oldPassword,
+        newPassword: newPassword,
+        accessToken: accessToken,
+        onTokenRefreshed: (token) =>
+            ref.read(accessTokenProvider.notifier).setToken(token),
+      );
+
+      // clear access_token
+      ref.read(accessTokenProvider.notifier).clear();
+
+      state = const AuthState();
+    } catch (e) {
+      state = AuthState(isLoading: false, error: e.toString());
+      rethrow;
+    }
+  }
+
+  Future<void> forgotPassword({required String email}) async {
+    return _repository.forgotPassword(email: email);
+  }
+
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    return _repository.resetPassword(token: token, newPassword: newPassword);
   }
 }
 

@@ -1,4 +1,7 @@
+import 'package:auth_frontend/core/errors/api_exception.dart';
 import 'package:auth_frontend/core/helpers/navigation.dart';
+import 'package:auth_frontend/core/helpers/snackbars.dart';
+import 'package:auth_frontend/features/auth/presentation/pages/enter_email.dart';
 import 'package:auth_frontend/features/auth/presentation/pages/home_page.dart';
 import 'package:auth_frontend/features/auth/presentation/providers/auth_notifier.dart';
 import 'package:flutter/cupertino.dart';
@@ -60,21 +63,16 @@ class _AuthPageState extends ConsumerState<AuthPage> {
             );
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _mode == AuthMode.login
-                ? 'Login successfull'
-                : 'Signup successfull',
-          ),
-        ),
+      if (!mounted) return;
+
+      AppSnackBar.info(
+        context,
+        _mode == AuthMode.login ? 'Login successful' : 'Signup successful',
       );
 
       AppNavigator.pushReplacement(context, const HomePage());
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Something went wrong')));
+    } on ApiException catch (e) {
+      AppSnackBar.error(context, e.message);
     } finally {
       if (mounted) {
         setState(() => loading = false);
@@ -225,6 +223,16 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                                 ),
                               ),
                             ),
+                          ),
+
+                          TextButton(
+                            onPressed: () {
+                              AppNavigator.push(
+                                context,
+                                const EnterEmailPage(),
+                              );
+                            },
+                            child: const Text('forgot Password'),
                           ),
                         ],
                       ),

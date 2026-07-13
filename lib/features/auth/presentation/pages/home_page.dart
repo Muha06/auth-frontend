@@ -1,5 +1,6 @@
 import 'package:auth_frontend/core/helpers/navigation.dart';
 import 'package:auth_frontend/features/auth/presentation/pages/auth_page.dart';
+import 'package:auth_frontend/features/auth/presentation/pages/change_password.dart';
 import 'package:auth_frontend/features/auth/presentation/providers/auth_notifier.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,6 +59,14 @@ class _UserSettingsSheet extends ConsumerWidget {
                 ref.read(profileProvider.notifier).refreshProfile();
 
                 AppNavigator.pop(context);
+              },
+            ),
+
+            ActionTile(
+              title: 'Change password',
+              leading: const Icon(Icons.password),
+              onTap: () {
+                AppNavigator.push(context, const ChangePasswordPage());
               },
             ),
 

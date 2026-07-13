@@ -1,11 +1,12 @@
-import 'package:auth_frontend/core/errors/server_exception.dart';
+import 'package:auth_frontend/core/errors/api_exception.dart';
+import 'package:auth_frontend/core/errors/unauthenticated_exception.dart';
 import 'package:auth_frontend/core/errors/unauthorized_exception.dart';
 import 'package:auth_frontend/features/auth/data/models/login_response.dart';
 import 'package:auth_frontend/features/auth/data/models/refresh_response.dart';
 import 'package:auth_frontend/features/auth/data/models/signup_response.dart';
 import 'package:auth_frontend/features/auth/domain/entities/user.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
 
 class AuthRemoteDs {
   AuthRemoteDs({required this.client, required this.baseUrl});
@@ -29,11 +30,7 @@ class AuthRemoteDs {
 
       return loginResponse;
     } on DioException catch (e) {
-      debugPrint(e.response?.data.toString());
-      rethrow;
-    } catch (e) {
-      debugPrint("error login ${e.toString()}");
-      rethrow;
+      throw ApiException(e.response?.data['message'] ?? 'Something went wrong');
     }
   }
 
@@ -54,15 +51,10 @@ class AuthRemoteDs {
           'password': password,
         },
       );
-      debugPrint(response.toString());
 
       return SignupResponse.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      debugPrint("Error signing up ${e.response}");
-      rethrow;
-    } catch (e) {
-      debugPrint("Unexpected error $e");
-      rethrow;
+      throw ApiException(e.response?.data['message'] ?? 'Something went wrong');
     }
   }
 
@@ -74,26 +66,15 @@ class AuthRemoteDs {
         data: {'refreshToken': refreshToken},
       );
 
-      debugPrint(response.toString());
-
       return RefreshResponse.fromJson(
         json: response.data as Map<String, dynamic>,
       );
     } on DioException catch (e) {
-      debugPrint("Error refreshing token ${e.response}");
-      switch (e.response?.statusCode) {
-        case 401:
-          throw const UnauthorizedException(); // Session ended
-
-        case 500:
-          throw const ServerException();
-
-        default:
-          rethrow;
+      if (e.response?.statusCode == 401) {
+        throw const UnauthenticatedException(); // session ended
       }
-    } catch (e) {
-      debugPrint("Unexpected error $e");
-      rethrow;
+
+      throw ApiException(e.response?.data['message'] ?? 'Something went wrong');
     }
   }
 
@@ -109,10 +90,17 @@ class AuthRemoteDs {
         options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
       );
     } on DioException catch (e) {
-      debugPrint("Error logging out ${e.response}");
-    } catch (e) {
-      debugPrint("Something went wrong $e");
-      rethrow;
+      if (e.response?.statusCode == 401) {
+        throw const UnauthorizedException(); // To refresh access_token
+      }
+
+      final message = e.response?.data?['message'];
+
+      throw ApiException(
+        message is List
+            ? message.first.toString()
+            : message?.toString() ?? 'Something went wrong',
+      );
     }
   }
 
@@ -127,15 +115,73 @@ class AuthRemoteDs {
       return UserProfile.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
-        throw const UnauthorizedException();
+        throw const UnauthorizedException(); // To refresh access_token
       }
 
-      debugPrint("Error getting me ${e.response}");
+      throw ApiException(e.response?.data['message'] ?? 'Something went wrong');
+    }
+  }
 
-      rethrow;
-    } catch (e) {
-      debugPrint("Something went wrong $e");
-      rethrow;
+  // change - password
+  Future<void> changePassword({
+    required String oldPassword,
+    required String newPassword,
+    required String accessToken,
+  }) async {
+    try {
+      await client.patch(
+        '$baseUrl/change-password',
+        data: {'oldPassword': oldPassword, 'newPassword': newPassword},
+        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+      );
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw const UnauthorizedException(); // To refresh access_token
+      }
+
+      final message = e.response?.data?['message'];
+
+      throw ApiException(
+        message is List
+            ? message.first.toString()
+            : message?.toString() ?? 'Something went wrong',
+      );
+    }
+  }
+
+  Future<void> forgotPassword({required String email}) async {
+    try {
+      await client.post('$baseUrl/forgot-password', data: {"email": email});
+    } on DioException catch (e) {
+      debugPrint(e.toString());
+      final message = e.response?.data?['message'];
+
+      throw ApiException(
+        message is List
+            ? message.first.toString()
+            : message?.toString() ?? 'Something went wrong',
+      );
+    }
+  }
+
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    try {
+      await client.post(
+        '$baseUrl/reset-password',
+        data: {"token": token, "newPassword": newPassword},
+      );
+    } on DioException catch (e) {
+      debugPrint(e.response?.data);
+      final message = e.response?.data?['message'];
+
+      throw ApiException(
+        message is List
+            ? message.first.toString()
+            : message?.toString() ?? 'Something went wrong',
+      );
     }
   }
 }

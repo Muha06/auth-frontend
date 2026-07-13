@@ -1,3 +1,4 @@
+ 
 import 'package:auth_frontend/core/errors/unauthenticated_exception.dart';
 import 'package:auth_frontend/core/errors/unauthorized_exception.dart';
 import 'package:auth_frontend/features/auth/data/datasources/auth_local_storage.dart';
@@ -74,14 +75,14 @@ class AuthRepository {
       await localStorage.storeRefreshToken(response.refreshToken);
 
       return response;
-    } on UnauthorizedException catch (_) {
+    } on UnauthenticatedException catch (_) {
       await localStorage.deleteRefreshToken();
 
-      throw const UnauthenticatedException();
+      rethrow;
     }
   }
 
- Future<void> logout({
+  Future<void> logout({
     String? accessToken,
     required void Function(String token) onTokenRefreshed,
   }) async {
@@ -110,7 +111,7 @@ class AuthRepository {
   }
 
   Future<UserProfile> getMe({
-    String? accessToken,
+    required String? accessToken,
     required void Function(String token) onTokenRefreshed,
   }) async {
     if (accessToken == null) {
@@ -121,22 +122,66 @@ class AuthRepository {
 
     try {
       final user = await remoteDs.getMe(accessToken: accessToken);
-      debugPrint(user.username.toString());
 
       await userProfileLocalDs.cache(user.toHiveModel()); // Cache user profile
 
       return user;
     } on UnauthorizedException catch (_) {
-      // accesstoken expired
+      debugPrint("hehe");
+      // access_token expired
+      accessToken = await _refreshIfNeeded();
+      onTokenRefreshed(accessToken); // save to memory
+
+      return getMe(
+        accessToken: accessToken,
+        onTokenRefreshed: onTokenRefreshed,
+      ); // retry
+    }
+  }
+
+  Future<void> changePassword({
+    required String oldPassword,
+    required String newPassword,
+    required String? accessToken,
+    required void Function(String token) onTokenRefreshed,
+  }) async {
+    if (accessToken == null) {
+      final token = await _refreshIfNeeded();
+      accessToken = token;
+      onTokenRefreshed(token); // pass to provider to store
+    }
+
+    try {
+      await remoteDs.changePassword(
+        oldPassword: oldPassword,
+        newPassword: newPassword,
+        accessToken: accessToken,
+      );
+
+      // clear refresh_token
+      await localStorage.deleteRefreshToken();
+    } on UnauthorizedException catch (_) {
       accessToken = await _refreshIfNeeded();
       onTokenRefreshed(accessToken);
 
-      final user = await remoteDs.getMe(accessToken: accessToken);
-
-      await userProfileLocalDs.cache(user.toHiveModel());
-
-      return user;
+      return changePassword(
+        oldPassword: oldPassword,
+        newPassword: newPassword,
+        accessToken: accessToken,
+        onTokenRefreshed: onTokenRefreshed,
+      );
     }
+  }
+
+  Future<void> forgotPassword({required String email}) {
+    return remoteDs.forgotPassword(email: email);
+  }
+
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) {
+    return remoteDs.resetPassword(token: token, newPassword: newPassword);
   }
 
   Future<String> _refreshIfNeeded() async {
